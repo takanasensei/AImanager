@@ -21,14 +21,40 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// 起動チェック（Supabase疎通も確認）
+// デバッグ用 health（原因を可視化）
 app.get("/health", async (req, res) => {
   try {
-    const { error } = await supabase.from("users").select("user_id").limit(1);
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    return res.json({ ok: true });
+    // ① Render -> インターネット疎通チェック
+    const netResp = await fetch("https://www.google.com/generate_204");
+    const net_ok = netResp.ok;
+
+    // ② Render -> Supabase疎通チェック（RESTに直で叩く）
+    const base = (process.env.SUPABASE_URL || "").trim();
+    const url = `${base}/rest/v1/users?select=user_id&limit=1`;
+
+    const r = await fetch(url, {
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      },
+    });
+
+    const body = await r.text();
+
+    return res.json({
+      ok: r.ok,
+      net_ok,
+      status: r.status,
+      supabase_url: base,
+      body: body.slice(0, 200),
+    });
   } catch (e) {
-    return res.status(500).json({ ok: false, error: String(e) });
+    return res.status(500).json({
+      ok: false,
+      supabase_url: (process.env.SUPABASE_URL || "").trim(),
+      error: String(e),
+      cause: e?.cause ? String(e.cause) : null,
+    });
   }
 });
 
