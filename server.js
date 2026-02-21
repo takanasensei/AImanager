@@ -116,7 +116,19 @@ async function saveMessage(userId, role, content) {
     .insert([{ user_id: userId, role, content }]);
   if (error) console.error("saveMessage error:", error);
 }
+async function searchManualKeyword(query, k = 5) {
+  const { data, error } = await supabase
+    .from("manual_chunks")
+    .select("source,page,section,content")
+    .textSearch("tsv", query, { type: "plain" })
+    .limit(k);
 
+  if (error) {
+    console.error("keyword search error:", error);
+    return [];
+  }
+  return data ?? [];
+}
 async function getRecentMessages(userId, limit = 12) {
   const { data, error } = await supabase
     .from("conversations")
