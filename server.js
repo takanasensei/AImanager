@@ -185,12 +185,26 @@ app.post("/webhook", async (req, res) => {
     await saveMessage(userId, "user", text);
 
     const history = await getRecentMessages(userId, 12);
+    const hits = await searchManualKeyword(text, 5);
+const context = hits
+  .map((h) => `【${h.source ?? "manual"} / ${h.section ?? ""}】\n${h.content}`)
+  .join("\n\n---\n\n");
     const system = buildSystemPrompt(user.role);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.2,
-      messages: [{ role: "system", content: system }, ...history],
+    messages: [
+  { role: "system", content: system },
+  {
+    role: "system",
+    content:
+      `以下は社内マニュアル抜粋です。必ず参照して回答してください。\n\n` +
+      `${context || "（該当なし）"}\n\n` +
+      `マニュアルに該当がなければ「確認が必要」と答えてください。`,
+  },
+  ...history,
+],
     });
 
     const reply =
